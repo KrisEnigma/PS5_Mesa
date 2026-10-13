@@ -1204,6 +1204,8 @@ radv_device_init_compiler_info(struct radv_device *device)
             .no_legacy_gs = pdev->use_ngg && !pdev->info.has_legacy_gs,
             .load_grid_size_from_user_sgpr = pdev->load_grid_size_from_user_sgpr,
             .emulate_ngg_gs_query_pipeline_stat = pdev->emulate_ngg_gs_query_pipeline_stat,
+            .ps5_vertex_tags = pdev->info.compiler_info.emulate_ps_strict_vertex_order &&
+                               device->vk.enabled_features.fragmentShaderBarycentric,
             .primitives_generated_query = primitives_generated_query,
             .mesh_shader_queries = mesh_shader_queries,
             .image_2d_view_of_3d = image_2d_view_of_3d,

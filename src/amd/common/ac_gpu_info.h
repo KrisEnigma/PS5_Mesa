@@ -216,6 +216,10 @@ struct ac_compiler_info {
     * (SPI_PS_INPUT_CNTL PRIM_ATTR, GFX10.3+), as it does a VS's implicit
     * primitive ID; without them the ID goes per vertex, as on GFX10.1. */
    uint32_t has_ngg_per_prim_params : 1;
+   /* Per-vertex fragment inputs arrive in the order the hardware picked, not the primitive's
+    * (no SPI_PS_INPUT_CNTL.ROTATE_PC_PTR, no provoking vertex argument: GFX10.1's parameter cache), and the
+    * compiler puts them in order itself with tags from the pre-rasterization stage. */
+   uint32_t emulate_ps_strict_vertex_order : 1;
 };
 
 struct radeon_info {

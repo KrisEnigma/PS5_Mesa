@@ -617,7 +617,8 @@ struct radv_compiler_info {
       uint32_t nir_debug_info : 1;
       uint32_t mesh_draw_records : 1;
       uint32_t task_emulation : 1;
-      uint32_t padding : 25;
+      uint32_t ps5_vertex_tags : 1; /* the pre-rasterization stage exports vertex tags: VK_KHR_fragment_shader_barycentric is enabled */
+      uint32_t padding : 24;
 
       int32_t force_aniso;
 

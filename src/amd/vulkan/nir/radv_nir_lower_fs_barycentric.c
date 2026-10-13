@@ -13,6 +13,9 @@
 #include "amdgfxregs.h"
 
 typedef struct {
+   /* The hardware rotates a primitive's vertices (radv_nir_lower_fs_vertex_order.c): the slot of the first one is found
+    * from the tags the pre-rasterization stage exports, not from the pixel shader's provoking vertex argument. */
+   bool ps5_vertex_order;
    bool dynamic_rasterization_samples;
    unsigned num_rasterization_samples;
    unsigned num_raster_vertices_per_prim;
@@ -129,7 +132,7 @@ lower_point(nir_builder *b)
 }
 
 static nir_def *
-lower_line(nir_builder *b, nir_def *p1, nir_def *p2)
+lower_line(nir_builder *b, const lower_fs_barycentric_state *state, nir_def *p1, nir_def *p2)
 {
    nir_def *coords[3];
 
@@ -137,11 +140,19 @@ lower_line(nir_builder *b, nir_def *p1, nir_def *p2)
    coords[0] = nir_fsub_imm(b, 1.0f, coords[1]);
    coords[2] = nir_imm_float(b, 0.0f);
 
+   if (state->ps5_vertex_order) {
+      /* The line's vertices arrive swapped when the first one is in the second slot. */
+      nir_def *swapped = nir_ieq_imm(b, radv_nir_ps5_vertex_order_slot(b, 2), 1);
+      nir_def *first = coords[0];
+      coords[0] = nir_bcsel(b, swapped, coords[1], first);
+      coords[1] = nir_bcsel(b, swapped, first, coords[1]);
+   }
+
    return nir_vec(b, coords, 3);
 }
 
 static nir_def *
-lower_triangle(nir_builder *b, nir_def *p1, nir_def *p2)
+lower_triangle(nir_builder *b, const lower_fs_barycentric_state *state, nir_def *p1, nir_def *p2)
 {
    nir_def *v0_bary[3], *v1_bary[3], *v2_bary[3];
    nir_def *coords[3];
@@ -151,9 +162,15 @@ lower_triangle(nir_builder *b, nir_def *p1, nir_def *p2)
     * quad_id = thread_id >> 2
     * provoking_vtx_id = (provoking_vtx >> (quad_id << 1)) & 3
     */
-   nir_def *quad_id = nir_ushr_imm(b, nir_load_subgroup_invocation(b), 2);
-   nir_def *provoking_vtx = nir_load_provoking_vtx_amd(b);
-   nir_def *provoking_vtx_id = nir_ubfe(b, provoking_vtx, nir_ishl_imm(b, quad_id, 1), nir_imm_int(b, 2));
+   nir_def *provoking_vtx_id;
+   nir_def *provoking_vtx = NULL;
+   if (state->ps5_vertex_order) {
+      provoking_vtx_id = radv_nir_ps5_vertex_order_slot(b, 3);
+   } else {
+      nir_def *quad_id = nir_ushr_imm(b, nir_load_subgroup_invocation(b), 2);
+      provoking_vtx = nir_load_provoking_vtx_amd(b);
+      provoking_vtx_id = nir_ubfe(b, provoking_vtx, nir_ishl_imm(b, quad_id, 1), nir_imm_int(b, 2));
+   }
 
    /* Compute barycentrics. */
    v0_bary[0] = nir_fsub(b, nir_fsub_imm(b, 1.0f, p2), p1);
@@ -214,11 +231,11 @@ lower_load_barycentric_coord(nir_builder *b, nir_intrinsic_instr *intrin, void *
          nir_def *is_line = nir_ieq_imm(b, vgt_outprim_type, V_028A6C_LINESTRIP);
          nir_if *if_line = nir_push_if(b, is_line);
          {
-            res_line = lower_line(b, p1, p2);
+            res_line = lower_line(b, state, p1, p2);
          }
          nir_push_else(b, if_line);
          {
-            res_triangle = lower_triangle(b, p1, p2);
+            res_triangle = lower_triangle(b, state, p1, p2);
          }
          nir_pop_if(b, if_line);
 
@@ -236,10 +253,10 @@ lower_load_barycentric_coord(nir_builder *b, nir_intrinsic_instr *intrin, void *
          p2 = nir_channel(b, interp, 1);
 
          if (state->num_raster_vertices_per_prim == 2) {
-            new_dest = lower_line(b, p1, p2);
+            new_dest = lower_line(b, state, p1, p2);
          } else {
             assert(state->num_raster_vertices_per_prim == 3);
-            new_dest = lower_triangle(b, p1, p2);
+            new_dest = lower_triangle(b, state, p1, p2);
          }
       }
    }
@@ -254,6 +271,7 @@ radv_nir_lower_fs_barycentric(nir_shader *shader, const struct radv_graphics_sta
                               unsigned num_raster_vertices_per_prim)
 {
    lower_fs_barycentric_state state = {
+      .ps5_vertex_order = radv_nir_ps5_vertex_order_enabled(shader),
       .dynamic_rasterization_samples = gfx_state->dynamic_rasterization_samples,
       .num_rasterization_samples = gfx_state->ms.rasterization_samples,
       .num_raster_vertices_per_prim = num_raster_vertices_per_prim,

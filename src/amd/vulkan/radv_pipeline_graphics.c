@@ -8,6 +8,7 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include <stdlib.h>
 #include "meta/radv_meta.h"
 #include "nir/nir.h"
 #include "nir/nir_serialize.h"
@@ -2579,6 +2580,30 @@ radv_graphics_shaders_compile(const struct radv_compiler_info *compiler_info, st
       merge_tess_info(&stages[MESA_SHADER_TESS_EVAL].nir->info, &stages[MESA_SHADER_TESS_CTRL].nir->info);
    }
 
+   /* Per-vertex fragment inputs in the primitive's own order, on a GPU whose SPI rotates them (docs/BARYCENTRIC_GFX101.md):
+    * the last pre-rasterization stage gives every vertex a tag and the pixel shader finds the provoking vertex's slot by it.
+    * Each half works where its stage is compiled: with the other in this pipeline, or alone in a pipeline library when the
+    * device has the feature enabled. A geometry or mesh shader's primitives are not served yet. */
+   mesa_shader_stage tag_stage = MESA_SHADER_NONE;
+   if (compiler_info->ac->emulate_ps_strict_vertex_order) {
+      mesa_shader_stage last_vgt = MESA_SHADER_NONE;
+      radv_foreach_stage (i, active_nir_stages) {
+         if (radv_is_last_vgt_stage(&stages[i]))
+            last_vgt = i;
+      }
+      const bool last_served = last_vgt == MESA_SHADER_VERTEX || last_vgt == MESA_SHADER_TESS_EVAL;
+
+      if (stages[MESA_SHADER_FRAGMENT].nir) {
+         if ((last_served || (last_vgt == MESA_SHADER_NONE && compiler_info->key.ps5_vertex_tags)) &&
+             radv_nir_lower_fs_vertex_order(stages[MESA_SHADER_FRAGMENT].nir,
+                                            radv_get_num_raster_vertices_per_prim(stages, gfx_state)) &&
+             last_served)
+            tag_stage = last_vgt;
+      } else if (last_served && compiler_info->key.ps5_vertex_tags) {
+         tag_stage = last_vgt;
+      }
+   }
+
    if (stages[MESA_SHADER_FRAGMENT].nir) {
       unsigned num_raster_vertices_per_prim = radv_get_num_raster_vertices_per_prim(stages, gfx_state);
 
@@ -2615,6 +2640,9 @@ radv_graphics_shaders_compile(const struct radv_compiler_info *compiler_info, st
             }
          }
       }
+
+      if (i == tag_stage)
+         NIR_PASS(_, stages[i].nir, radv_nir_export_vertex_tags, gfx_state->rs.provoking_vtx_last);
 
       radv_nir_lower_io(stages[i].nir);
 

@@ -305,6 +305,10 @@ radv_ps5_describe_gpu(struct radeon_info *info, bool compiler_compat_mode)
    snprintf(info->marketing_name, sizeof(info->marketing_name), "PlayStation 5 GPU");
    radv_ps5_take_gc_10_1_3_traits(info, compiler_compat_mode);
 
+   /* This GPU's parameter cache rotates per-vertex fragment inputs and tells the shader nothing about it: the compiler
+    * restores the order itself (docs/BARYCENTRIC_GFX101.md), so VK_KHR_fragment_shader_barycentric is reported. */
+   info->compiler_info.emulate_ps_strict_vertex_order = true;
+
    /* What the platform, not the chip, rules out. */
    /* Every wave of a shader using scratch_* instructions faulted (MEMVIOL) a
     * few instructions in, where it had set FLAT_SCRATCH with s_setreg; the

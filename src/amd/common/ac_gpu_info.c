@@ -244,7 +244,7 @@ ac_fill_compiler_info(struct radeon_info *info, const struct drm_amdgpu_info_dev
 {
    /* We use ac_compiler_info for shader cache keys, so make sure there is no padding. */
    STATIC_ASSERT(sizeof(enum amd_gfx_level) == 4);
-   STATIC_ASSERT(sizeof(struct ac_compiler_info) == 60);
+   STATIC_ASSERT(sizeof(struct ac_compiler_info) == 64);
 
    struct ac_compiler_info *out = &info->compiler_info;
 
@@ -334,6 +334,7 @@ ac_fill_compiler_info(struct radeon_info *info, const struct drm_amdgpu_info_dev
    out->has_flat_scratch = info->gfx_level >= GFX9;
    out->has_cs_wave_id = info->gfx_level >= GFX10_3;
    out->has_ngg_per_prim_params = info->gfx_level >= GFX10_3;
+   out->emulate_ps_strict_vertex_order = false; /* the PS5's winsys sets it */
    out->has_fast_fma32 = info->gfx_level >= GFX9 || info->family == CHIP_TAHITI ||
                          info->family == CHIP_HAWAII || info->family == CHIP_CARRIZO;
    out->has_fma_mix = info->gfx_level >= GFX10 || info->family == CHIP_VEGA12 ||

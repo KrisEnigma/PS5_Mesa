@@ -58,6 +58,16 @@ bool radv_nir_lower_fs_input_attachment(nir_shader *nir);
 bool radv_nir_lower_fs_barycentric(nir_shader *shader, const struct radv_graphics_state_key *gfx_state,
                                    unsigned num_raster_vertices_per_prim);
 
+/* Per-vertex fragment inputs in the primitive's vertex order on a GPU whose SPI rotates them (the PS5's). */
+bool radv_nir_lower_fs_vertex_order(nir_shader *fs, unsigned num_raster_vertices_per_prim);
+
+bool radv_nir_ps5_vertex_order_enabled(nir_shader *fs);
+
+struct nir_builder;
+nir_def *radv_nir_ps5_vertex_order_slot(struct nir_builder *b, unsigned num_raster_vertices_per_prim);
+
+bool radv_nir_export_vertex_tags(nir_shader *nir, bool provoking_last);
+
 bool radv_nir_lower_intrinsics_early(nir_shader *nir, bool lower_view_index_to_zero);
 
 bool radv_nir_export_multiview(nir_shader *nir);

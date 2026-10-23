@@ -84,10 +84,6 @@
  * enough for the host builds to run the swapchain's logic. */
 #define PS5_VIDEO_OUT_USER_SYSTEM 0xff
 #define PS5_VIDEO_OUT_PIXEL_FORMAT_B8G8R8A8_SDR UINT64_C(0x8000000000000000)
-/* R10G10B10A2 with red in the low bits (VK_FORMAT_A2B10G10R10_UNORM_PACK32),
- * BT.2020 primaries, PQ. Taken only from a title whose param.json attribute
- * carries 0x20000000; otherwise registering returns 0x80290003. */
-#define PS5_VIDEO_OUT_PIXEL_FORMAT_A2R10G10B10_HDR10 UINT64_C(0x8100070422000000)
 #define PS5_VIDEO_OUT_TILING_64KB_R_X 0u
 #define PS5_VIDEO_OUT_ATTRIBUTE_BYTES 80
 #define PS5_VIDEO_OUT_FLIP_STATUS_WORDS 16
@@ -162,6 +158,13 @@ sceVideoOutConfigureOutput(int32_t handle, uint32_t mode, const void *a, const v
 {
    return -1;
 }
+#endif
+
+#ifndef PS5_VIDEO_OUT_PIXEL_FORMAT_A2R10G10B10_HDR10
+/* R10G10B10A2 with red in the low bits (VK_FORMAT_A2B10G10R10_UNORM_PACK32),
+ * BT.2020 primaries, PQ. Taken only from a title whose param.json attribute
+ * carries 0x20000000; otherwise registering returns 0x80290003. */
+#define PS5_VIDEO_OUT_PIXEL_FORMAT_A2R10G10B10_HDR10 UINT64_C(0x8100070422000000)
 #endif
 
 /* The sizes VideoOut takes buffers of, the largest first, and a buffer's

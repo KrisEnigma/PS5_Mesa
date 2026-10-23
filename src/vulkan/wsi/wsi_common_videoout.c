@@ -397,7 +397,15 @@ videoout_open_locked(void)
       out->high_frame_rate = supported > 0 && configured == 0;
       if (out->high_frame_rate) {
          /* A period of 0 is a failed wait: never taken for 119.88 Hz */
-         const uint64_t period = videoout_vblank_period_ns(out->handle);
+         /* The console is still settling right after the mode switch and a first
+          * measurement can read the old period; restoring on it pegs the output to
+          * 59.94 Hz while it flips at 119.88. Measure again before giving up. */
+         uint64_t period = videoout_vblank_period_ns(out->handle);
+         for (unsigned retry = 0; retry < 4 && (period == 0 || period > VIDEOOUT_HIGH_REFRESH_LIMIT_NS); retry++) {
+            os_time_sleep(250 * 1000);
+            period = videoout_vblank_period_ns(out->handle);
+         }
+         fprintf(stderr, "wsi/videoout: 119.88 Hz accepted, vblank every %.3f ms\n", (double)period / 1e6);
          if (period == 0 || period > VIDEOOUT_HIGH_REFRESH_LIMIT_NS) {
             sceVideoOutConfigureOutput(out->handle, PS5_VIDEO_OUT_MODE_RESTORE, NULL, NULL, NULL);
             out->high_frame_rate = false;

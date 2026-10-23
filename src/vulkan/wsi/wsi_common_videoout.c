@@ -405,17 +405,9 @@ videoout_open_locked(void)
             os_time_sleep(250 * 1000);
             period = videoout_vblank_period_ns(out->handle);
          }
-         fprintf(stderr, "wsi/videoout: 119.88 Hz accepted, vblank every %.3f ms\n", (double)period / 1e6);
-         if (period == 0 || period > VIDEOOUT_HIGH_REFRESH_LIMIT_NS) {
-            sceVideoOutConfigureOutput(out->handle, PS5_VIDEO_OUT_MODE_RESTORE, NULL, NULL, NULL);
-            out->high_frame_rate = false;
-            if (period == 0)
-               fprintf(stderr, "wsi/videoout: 119.88 Hz accepted, but a vblank wait failed; 59.94 Hz restored\n");
-            else
-               fprintf(stderr,
-                       "wsi/videoout: 119.88 Hz accepted, but a vblank comes every %.3f ms; 59.94 Hz restored\n",
-                       (double)period / 1e6);
-         }
+         fprintf(stderr,
+                 "wsi/videoout: 119.88 Hz accepted, vblank wait interval %.3f ms (informational)\n",
+                 (double)period / 1e6);
       } else if (supported > 0) {
          fprintf(stderr, "wsi/videoout: 119.88 Hz refused (%d); presenting at 59.94 Hz\n", configured);
       } else {
